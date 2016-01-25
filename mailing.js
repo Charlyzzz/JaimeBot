@@ -69,4 +69,4 @@ imap.once('end', function () {
     console.log('Connection ended');
 });
 
-imap.connect();
+//imap.connect();
