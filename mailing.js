@@ -3,7 +3,7 @@
  */
 
 var Imap = require('imap');
-var inspect = require('util').inspect;
+var quotedPrintable = require('quoted-printable');
 var S = require('string');
 
 var imap = new Imap({
@@ -14,50 +14,69 @@ var imap = new Imap({
     tls: true
 });
 
+
 function openInbox(cb) {
     imap.openBox('INBOX', true, cb);
 }
 
+
 imap.once('ready', function () {
-    openInbox(function (err, box) {
+
+    openInbox(function (err) {
         if (err) throw err;
-        var f = imap.seq.fetch(box.messages.total + ':*', {bodies: ''});
-        f.on('message', function (msg, seqno) {
-            console.log('Message #%d', seqno);
-            var prefix = '(#' + seqno + ') ';
-            msg.on('body', function (stream, info) {
-                if (info.which === 'TEXT')
-                    console.log(prefix + 'Body [%s] found, %d total bytes', inspect(info.which), info.size);
-                var buffer = '', count = 0;
-                stream.on('data', function (chunk) {
-                    count += chunk.length;
-                    buffer += chunk.toString('utf8');
-                    if (info.which === 'TEXT')
-                        console.log(prefix + 'Body [%s] (%d/%d)', inspect(info.which), count, info.size);
+        imap.search(['SEEN', ['FROM', 'AgustinC@exo.com.ar']], function (err, results) {
+
+            var msgs = [];
+
+            var f = imap.seq.fetch(results, {
+                bodies: ['HEADER.FIELDS (FROM DATE)', 'TEXT'],
+                struct: true
+            });
+
+
+            f.on('message', function (msg) {
+
+                var incMsg = {};
+
+                msg.on('body', function (stream) {
+                    var buffer = '';
+                    stream.on('data', function (chunk) {
+                        buffer += chunk.toString('utf8');
+                    });
+
+                    stream.once('end', function () {
+
+                        var wallOfText = S(buffer.toString()).between('Sugerencias', 'Minutas').toString();
+                        if (wallOfText !== '') {
+                            incMsg.body = 'Sugerencias'+ wallOfText;
+                        }
+                        incMsg.date = Imap.parseHeader(buffer).date;
+                        incMsg.from = Imap.parseHeader(buffer).from;
+                    });
                 });
-                stream.once('end', function () {
-                    var t = S(buffer);
-                    console.log(buffer.toString());
-                    if (info.which !== 'TEXT')
-                        console.log(prefix + 'Parsed header: %s', inspect(Imap.parseHeader(buffer)));
-                    else
-                        console.log(prefix + 'Body [%s] Finished', inspect(info.which));d
+
+                msg.once('end', function () {
+                    incMsg.from = incMsg.from[0];
+                    incMsg.date = incMsg.date[0];
+                    msgs.push(incMsg);
                 });
+
             });
-            msg.once('attributes', function (attrs) {
-                console.log(prefix + 'Attributes: %s', inspect(attrs, false, 8));
+            f.once('error', function (err) {
+                console.log('Fetch error: ' + err);
             });
-            msg.once('end', function () {
-                console.log(prefix + 'Finished');
+            f.once('end', function () {
+
+
+                imap.end();
+                msgs.map((email) => {
+                    email.body = quotedPrintable.decode(email.body);
+                    return email;
+                });
+
+                cb(msgs);
             });
-        });
-        f.once('error', function (err) {
-            console.log('Fetch error: ' + err);
-        });
-        f.once('end', function () {
-            console.log('Done fetching all messages!');
-            imap.end();
-        });
+        })
     });
 });
 
@@ -69,4 +88,14 @@ imap.once('end', function () {
     console.log('Connection ended');
 });
 
-//imap.connect();
+var cb;
+
+
+var readEmails = function (callback) {
+
+    cb = callback;
+    imap.connect();
+
+};
+
+module.exports = readEmails;

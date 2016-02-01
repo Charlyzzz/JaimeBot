@@ -1,39 +1,56 @@
 'use strict';
 
+/**
+ *
+ * @param {Function} funcion
+ * @return {Boolean} result
+ */
+Array.prototype.anySatisfy = function anySatisfy(funcion) {
+
+    return !this.filter(funcion).isEmpty()
+
+};
+
+/**
+ *
+ * @return {Boolean} result
+ */
+Array.prototype.isEmpty = function isEmpty() {
+
+    return this.length === 0;
+
+};
+
 class UserRepository {
 
     constructor() {
         this.users = [];
     }
 
-    add(params) {
+    add(user) {
+        this.users.push(new User(user));
+    }
 
-        if (this.getUser(user.id) === undefined) {
-            this._add(user);
+    isRegistered(id) {
+        return this.users.anySatisfy((user) => {
+            user.id == id
+        });
+    }
+
+    /**
+     *
+     * @param user
+     * @returns {User}
+     */
+    getUser(user) {
+
+        if (!this.isRegistered(user.id)) {
+            this.add(user);
         }
+        return this.users.find((user) => {
+            return user.id === user.id
+        });
     }
-
-    _add(params) {
-        var user = new User(params);
-        user.subscribe();
-        this.users.push(user);
-    }
-
-    getUser(id) {
-        return this.users.filter((user) => {
-           return user.id === id
-        }).pop();
-    }
-
-    getStatus(id) {
-        let user = this.getUser(id);
-        return user === undefined? undefined : user.subscribed;
-    }
-
-    exists(id){
-        return this.getUser(id)    }
-
-
 }
 
 class User {
@@ -42,23 +59,23 @@ class User {
         this.name = params.first_name;
         this.id = params.id;
         this.username = params.username;
-        this.subscribed = false;
+        this.alias = '';
+        this.unsubscribe();
     }
 
-    subscribe() {
-        this.subscribed = true;
+    suscribe() {
+        this.isSubscript = true;
+        this.status = 'suscripto!';
     }
 
     unsubscribe() {
-        this.subscribed = false;
+        this.isSubscript = false;
+        this.status = 'sin suscripción!';
     }
 
-    pedir(menu){
-        this.pedidos.push(menu);
+    isValidAlias() {
+        return this.alias !== '';
     }
 }
 
-function id(msg){
-    return msg.from.id;
-}
-module.exports = {User,UserRepository};
+module.exports = {User, UserRepository};
